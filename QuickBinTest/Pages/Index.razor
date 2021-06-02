@@ -1,0 +1,112 @@
+﻿@page "/"
+@using System.Net.Sockets
+@using System.Text.Encodings
+
+<h1>QUICK BIN TEST APP</h1>
+<br />
+
+<form>
+    <div class="mb-3">
+        <button type="button" class="btn btn-primary" @onclick="TurnOnLED">LED ON</button>
+        <button type="button" class="btn btn-primary" @onclick="TurnOffLED">LED OFF</button>
+    </div>
+    <div class="mb-3">
+        <label for="messageinput" class="form-label">Line 1</label>
+        <input type="text" class="form-control" id="messageinput" @bind-value="Line1">
+    </div>
+    <div class="mb-3">
+        <label for="messageinput" class="form-label">Line 2</label>
+        <input type="text" class="form-control" id="messageinput" @bind-value="Line2">
+    </div>
+    <div class="mb-3">
+        <label for="messageinput" class="form-label">Line 3</label>
+        <input type="text" class="form-control" id="messageinput" @bind-value="Line3">
+    </div>
+    <div class="mb-3">
+        <button type="button" class="btn btn-primary" @onclick="SendLines">DRAW LINES</button>
+    </div>
+    <div class="mb-3">
+        <label for="messageinput" class="form-label">Message</label>
+        <input type="text" class="form-control" id="messageinput" @bind-value="MyModel.Message">
+    </div>
+    <div class="mb-3">
+        <button type="button" class="btn btn-primary" @onclick="HandleSendMessageButtonClick">SEND MESSAGE</button>
+    </div>
+    <div class="mb-3">
+        <label for="response" class="form-label">Response</label>
+        <input type="text" class="form-control" id="response" @bind-value="MyModel.Response">
+    </div>
+
+</form>
+
+
+
+@code{
+
+    public Communication MyModel { get; set; } = new Communication();
+    public string Line1 { get; set; }
+    public string Line2 { get; set; }
+    public string Line3 { get; set; }
+
+    public void HandleSendMessageButtonClick()
+    {
+        MyModel.Response = SendMessage("192.168.86.27", 80, MyModel.Message);
+    }
+
+    public string SendMessage(string address, int port, string message)
+    {
+        var result = string.Empty;
+        try
+        {
+            var client = new TcpClient(address, port);
+
+            Byte[] data = System.Text.Encoding.ASCII.GetBytes($"{message} \n\n");
+
+            NetworkStream stream = client.GetStream();
+
+            stream.Write(data, 0, data.Length);
+
+            var returnedData = new byte[256];
+
+            // Read the first batch of the TcpServer response bytes.
+            Int32 bytes = stream.Read(returnedData, 0, returnedData.Length);
+            result = System.Text.Encoding.ASCII.GetString(returnedData, 0, bytes);
+
+            // Close everything.
+            stream.Close();
+            client.Close();
+        }
+        catch (ArgumentNullException ex)
+        {
+            result = $"ArgumentNullException: {ex.Message}";
+        }
+        catch (SocketException ex)
+        {
+            result = $"SocketException: {ex.Message}";
+        }
+
+        return result;
+    }
+
+    public void TurnOnLED()
+    {
+        MyModel.Response = SendMessage("192.168.86.27", 80, "LED ON");
+    }
+
+    public void TurnOffLED()
+    {
+        MyModel.Response = SendMessage("192.168.86.27", 80, "LED OFF");
+    }
+
+    public class Communication
+    {
+        public string Message { get; set; }
+        public string Response { get; set; }
+    }
+
+    public void SendLines()
+    {
+        var message = $"DRAW{Line1}^{Line2}^{Line3}";
+        MyModel.Response = SendMessage("192.168.86.27", 80, message);
+    }
+}
