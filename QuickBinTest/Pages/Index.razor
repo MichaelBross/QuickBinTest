@@ -1,6 +1,9 @@
 ﻿@page "/"
 @using System.Net.Sockets
 @using System.Text.Encodings
+@using QuickBinTest.Data
+@inject IQuickBinService QuickBinService
+@inject NavigationManager navigationManager
 
 <h1>QUICK BIN TEST APP</h1>
 <br />
@@ -36,7 +39,16 @@
         <label for="response" class="form-label">Response</label>
         <input type="text" class="form-control" id="response" @bind-value="MyModel.Response">
     </div>
-
+    <div class="mb-3">
+        <label for="response" class="form-label">Message</label>
+        <input type="text" class="form-control" id="response" @bind-value="Message">
+    </div>
+    @foreach (var quickBin in QuickBins)
+    {
+        <div class="mb-3">
+            @quickBin.Id  @quickBin.Message 
+        </div>
+    }
 </form>
 
 
@@ -47,10 +59,37 @@
     public string Line1 { get; set; }
     public string Line2 { get; set; }
     public string Line3 { get; set; }
+    public string Message { get; set; }
+    public List<string> Issues { get; set; }
+    public List<QuickBin> QuickBins { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        QuickBins = new List<QuickBin>();
+        await base.OnInitializedAsync();
+
+        string baseUrl = navigationManager.BaseUri;
+        await QuickBinService.RegisterClient("kitting", baseUrl, Issues);
+        QuickBinService.onMessageReceived += HandleQuickBinMessage;
+
+    }
 
     public void HandleSendMessageButtonClick()
     {
         MyModel.Response = SendMessage("192.168.86.27", 80, MyModel.Message);
+    }
+
+    public void HandleQuickBinMessage(object sender, QuickBin qb)
+    {
+        QuickBins.Add(qb);
+        Message = qb.Message;
+        InvokeAsync(() => StateHasChanged());
+    }
+
+    public void HandleCountchanged(object sender, QuickBin qb)
+    {
+        Message = qb.Message;
+        InvokeAsync(StateHasChanged);
     }
 
     public string SendMessage(string address, int port, string message)
@@ -109,4 +148,5 @@
         var message = $"DRAW{Line1}^{Line2}^{Line3}";
         MyModel.Response = SendMessage("192.168.86.27", 80, message);
     }
+
 }

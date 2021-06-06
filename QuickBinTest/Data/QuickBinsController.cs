@@ -3,15 +3,26 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using EventAggregator;
+using Microsoft.AspNetCore.SignalR;
+using System.Text.Json;
+
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace QuickBinTest.Data
 {
-    [Route("api/[controller]/[action]")]
+    [Route("api/[controller]")]
     [ApiController]
     public class QuickBinsController : ControllerBase
     {
+        private readonly IHubContext<QuickBinHub> _hubContext;
+
+        public QuickBinsController(IHubContext<QuickBinHub> hubContext)
+        {
+            _hubContext = hubContext;
+        }
+
         // GET: api/<QuickBinsController>
         [HttpGet]
         public IEnumerable<string> Get()
@@ -23,12 +34,7 @@ namespace QuickBinTest.Data
         { 
             return "Hello World";
         }
-
-        [HttpPost]
-        public void Update(string value)
-        {
-            var newMessage = value;
-        }
+               
 
         // GET api/<QuickBinsController>/5
         [HttpGet("{id}")]
@@ -39,9 +45,10 @@ namespace QuickBinTest.Data
 
         // POST api/<QuickBinsController>
         [HttpPost]
-        public void Post([FromBody] string value)
+        public void Post([FromBody] QuickBin quickBin)
         {
-            var newValue = value;
+            var quickBinJson = JsonSerializer.Serialize(quickBin);
+            _hubContext.Clients.All.SendAsync("Broadcast", "QuickBins", quickBinJson);
         }
 
         // PUT api/<QuickBinsController>/5

@@ -26,11 +26,11 @@ namespace QuickBinTest
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
-            //services.AddMvc(setupAction: options => options.EnableEndpointRouting = false)
-            //    .SetCompatibilityVersion(Microsoft.AspNetCore.Mvc.CompatibilityVersion.Version_3_0);
             services.AddRazorPages();
             services.AddServerSideBlazor();
-            services.AddSingleton<WeatherForecastService>();
+            services.AddEventAggregator();
+            services.AddTransient<IQuickBinService, QuickBinService>();
+            services.AddSignalR();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -51,13 +51,13 @@ namespace QuickBinTest
             app.UseStaticFiles();
 
             app.UseRouting();
-            //app.UseMvcWithDefaultRoute();
 
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
                 endpoints.MapBlazorHub();
                 endpoints.MapFallbackToPage("/_Host");
+                endpoints.MapHub<QuickBinHub>(QuickBinHub.HubUrl);
             });
         }
     }
