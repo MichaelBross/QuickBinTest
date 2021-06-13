@@ -71,8 +71,6 @@ namespace QuickBinTest.Data
 
         private void HandleMessageReceived(IAsyncResult ar)
         {
-            string msgHolder = null;
-
             try
             {
                 if (socket.Available == 0)

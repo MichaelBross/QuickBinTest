@@ -29,7 +29,6 @@ namespace QuickBinTest
             services.AddRazorPages();
             services.AddServerSideBlazor();
             services.AddEventAggregator();
-            services.AddTransient<IQuickBinService, QuickBinService>();
             services.AddSignalR();
         }
 
@@ -54,10 +53,8 @@ namespace QuickBinTest
 
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapControllers();
                 endpoints.MapBlazorHub();
                 endpoints.MapFallbackToPage("/_Host");
-                endpoints.MapHub<QuickBinHub>(QuickBinHub.HubUrl);
             });
         }
     }
