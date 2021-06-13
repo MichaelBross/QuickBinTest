@@ -2,7 +2,6 @@
 @using System.Text
 @using System.Xml
 @using System.Net.Sockets
-@using System.Net.WebSockets
 @using System.Text.Encodings
 @using QuickBinTest.Data
 @inject IQuickBinService QuickBinService
@@ -31,21 +30,7 @@
     <div class="mb-3">
         <button type="button" class="btn btn-primary" @onclick="SendLines">DRAW LINES</button>
     </div>
-    <div class="mb-3">
-        <label for="messageinput" class="form-label">Message</label>
-        <input type="text" class="form-control" id="messageinput" @bind-value="MyModel.Message">
-    </div>
-    <div class="mb-3">
-        <button type="button" class="btn btn-primary" @onclick="HandleSendMessageButtonClick">SEND MESSAGE</button>
-    </div>
-    <div class="mb-3">
-        <label for="response" class="form-label">Response</label>
-        <input type="text" class="form-control" id="response" @bind-value="MyModel.Response">
-    </div>
-    <div class="mb-3">
-        <label for="response" class="form-label">Message</label>
-        <input type="text" class="form-control" id="response" @bind-value="Message">
-    </div>
+
     @foreach (var quickBin in QuickBins)
     {
         <div class="mb-3">
@@ -82,7 +67,7 @@
     public string Line1 { get; set; }
     public string Line2 { get; set; }
     public string Line3 { get; set; }
-    public string Message { get; set; }
+
     public List<string> Issues { get; set; }
     public List<string> Messages { get; set; } = new List<string>();
     public List<QuickBin> QuickBins { get; set; }
@@ -101,7 +86,7 @@
         await base.OnInitializedAsync();
 
         string baseUrl = navigationManager.BaseUri;
-        await QuickBinService.RegisterClient("kitting", baseUrl, Issues);
+
         QuickBinService.onMessageReceived += HandleQuickBinMessage;
 
         sck = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
@@ -119,7 +104,7 @@
                 if (sck.Connected)
                 {
                     Messages.Add("YOU ARE NOW CONNECTED" + Environment.NewLine);
-                    sck.BeginReceive(new byte[] { 0 }, 0, 0, 0, callback, null);
+                    sck.BeginReceive(new byte[] { 0 }, 0, 0, 0, HandleMessageReceived, null);
                     sck.Send(Encoding.UTF8.GetBytes($"Welcome {UserName}{Environment.NewLine}"));
                 }
                 else
@@ -139,11 +124,25 @@
 
     private void btnSend_Click()
     {
-        var formattedMessage = UserName + ">>> " + MessageToSend + Environment.NewLine;
-        sck.Send(Encoding.UTF8.GetBytes(formattedMessage));
+        if (!sck.Connected)
+        {
+            Messages.Add("Quickbin not connected.");
+        }
+
+
+        try
+        {
+            var formattedMessage = UserName + ">>> " + MessageToSend + Environment.NewLine;
+            sck.Send(Encoding.UTF8.GetBytes(formattedMessage));
+        }
+        catch (Exception ex)
+        {
+            Messages.Add($"Error sending message to QuickBin: {ex.Message}");
+        }
+
     }
 
-    void callback(IAsyncResult ar)
+    void HandleMessageReceived(IAsyncResult ar)
     {
         string msgHolder = null;
 
@@ -162,9 +161,9 @@
 
             if (rec < buf.Length)
                 Array.Resize<byte>(ref buf, rec);
-            sck.BeginReceive(new byte[] { 0 }, 0, 0, 0, callback, null);
+            sck.BeginReceive(new byte[] { 0 }, 0, 0, 0, HandleMessageReceived, null);
 
-            Messages.Add(Encoding.UTF8.GetString(buf));
+            Messages.Add($"{DateTime.Now} {Encoding.UTF8.GetString(buf)}");
             InvokeAsync(StateHasChanged);
         }
         catch (Exception ex)
@@ -175,72 +174,23 @@
 
     }
 
-    #region HTTP_METHOD
-
-    public void HandleSendMessageButtonClick()
-    {
-        MyModel.Response = SendTcpMessage("192.168.86.27", 80, MyModel.Message);
-    }
+    #region HTTP_METHOD   
 
     public void HandleQuickBinMessage(object sender, QuickBin qb)
     {
         QuickBins.Add(qb);
-        Message = qb.Message;
+
         InvokeAsync(() => StateHasChanged());
-    }
-
-    public void HandleCountchanged(object sender, QuickBin qb)
-    {
-        Message = qb.Message;
-        InvokeAsync(StateHasChanged);
-    }
-
-    public string SendTcpMessage(string address, int port, string message)
-    {
-        var result = string.Empty;
-        try
-        {
-            var httpClient = new HttpClient();
-            var udpClient = new UdpClient();
-            var webSocket = new ClientWebSocket();
-            var client = new TcpClient(address, port);
-
-            Byte[] data = System.Text.Encoding.ASCII.GetBytes($"{message} \n\n");
-
-            NetworkStream stream = client.GetStream();
-
-            stream.Write(data, 0, data.Length);
-
-            var returnedData = new byte[256];
-
-            // Read the first batch of the TcpServer response bytes.
-            Int32 bytes = stream.Read(returnedData, 0, returnedData.Length);
-            result = System.Text.Encoding.ASCII.GetString(returnedData, 0, bytes);
-
-            // Close everything.
-            stream.Close();
-            client.Close();
-        }
-        catch (ArgumentNullException ex)
-        {
-            result = $"ArgumentNullException: {ex.Message}";
-        }
-        catch (SocketException ex)
-        {
-            result = $"SocketException: {ex.Message}";
-        }
-
-        return result;
     }
 
     public void TurnOnLED()
     {
-        MyModel.Response = SendTcpMessage("192.168.86.27", 80, "LED ON");
+        //MyModel.Response = SendTcpMessage("192.168.86.27", 80, "LED ON");
     }
 
     public void TurnOffLED()
     {
-        MyModel.Response = SendTcpMessage("192.168.86.27", 80, "LED OFF");
+        // MyModel.Response = SendTcpMessage("192.168.86.27", 80, "LED OFF");
     }
 
     public class Communication
@@ -252,7 +202,7 @@
     public void SendLines()
     {
         var message = $"DRAW{Line1}^{Line2}^{Line3}";
-        MyModel.Response = SendTcpMessage("192.168.86.27", 80, message);
+        //MyModel.Response = SendTcpMessage("192.168.86.27", 80, message);
     }
 
     #endregion
