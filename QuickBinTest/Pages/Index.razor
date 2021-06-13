@@ -11,21 +11,53 @@
 <br />
 
 <form>
+    <div class="row">
+        <div class="col-1">
+            <button type="button" class="btn btn-primary" @onclick="btnConnect_Click">CONNECT</button>
+        </div>
+        <div class="col-md-4">
+            <div class="input-group mb-3">
+                <span class="input-group-text">IP ADDRESS</span>
+                <input type="text" class="form-control" @bind-value="QuickBinVM.QuickBinIpAddress">
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="input-group mb-3">
+                <span class="input-group-text">PORT</span>
+                <input type="text" class="form-control" @bind-value="QuickBinVM.QuickBinSocketPort">
+            </div>
+        </div>
+    </div>
+    <br />
+    <div class="row g-3">
+        <div class="col-1">
+            <button type="button" class="btn btn-primary" @onclick="btnSend_Click">SEND</button>
+        </div>
+        <div class="col-10">
+            @*<label for="response" class="form-label">MESSAGE</label>
+            <input type="text" class="form-control" id="response" @bind-value="QuickBinVM.MessageToSend">*@
+            <div class="input-group mb-3">
+                <span class="input-group-text">MESSAGE</span>
+                <input type="text" class="form-control" @bind-value="QuickBinVM.MessageToSend">
+            </div>
+        </div>
+    </div>
+    <br />
     <div class="mb-3">
         <button type="button" class="btn btn-primary" @onclick="TurnOnLED">LED ON</button>
         <button type="button" class="btn btn-primary" @onclick="TurnOffLED">LED OFF</button>
     </div>
-    <div class="mb-3">
-        <label for="messageinput" class="form-label">Line 1</label>
-        <input type="text" class="form-control" id="messageinput" @bind-value="QuickBinVM.Line1">
+    <div class="input-group mb-3">
+        <span class="input-group-text">LINE 1</span>
+        <input type="text" class="form-control" @bind-value="QuickBinVM.Line1">
     </div>
-    <div class="mb-3">
-        <label for="messageinput" class="form-label">Line 2</label>
-        <input type="text" class="form-control" id="messageinput" @bind-value="QuickBinVM.Line2">
+    <div class="input-group mb-3">
+        <span class="input-group-text">LINE 2</span>
+        <input type="text" class="form-control" @bind-value="QuickBinVM.Line2">
     </div>
-    <div class="mb-3">
-        <label for="messageinput" class="form-label">Line 3</label>
-        <input type="text" class="form-control" id="messageinput" @bind-value="QuickBinVM.Line3">
+    <div class="input-group mb-3">
+        <span class="input-group-text">LINE 3</span>
+        <input type="text" class="form-control" @bind-value="QuickBinVM.Line2">
     </div>
     <div class="mb-3">
         <button type="button" class="btn btn-primary" @onclick="QuickBinVM.SendLines">DRAW LINES</button>
@@ -38,14 +70,6 @@
         </div>
     }
 
-    <div class="mb-3">
-        <button type="button" class="btn btn-primary" @onclick="btnConnect_Click">CONNECT</button>
-        <button type="button" class="btn btn-primary" @onclick="btnSend_Click">SEND MESSAGE</button>
-    </div>
-    <div class="mb-3">
-        <label for="response" class="form-label">MESSAGE TO SEND</label>
-        <input type="text" class="form-control" id="response" @bind-value="QuickBinVM.MessageToSend">
-    </div>
     <div class="mb-3">
         EVENTS
     </div>
@@ -69,7 +93,6 @@
         }
     </div>
 </form>
-
 
 
 @code{
@@ -103,24 +126,17 @@
 
     public void TurnOnLED()
     {
-        //MyModel.Response = SendTcpMessage("192.168.86.27", 80, "LED ON");
+        QuickBinVM.SendCommand("LED ON");
     }
 
     public void TurnOffLED()
     {
-        // MyModel.Response = SendTcpMessage("192.168.86.27", 80, "LED OFF");
+        QuickBinVM.SendCommand("LED OFF");
     }
 
     public void HandleMessageReceived(object sender, EventArgs e)
     {
         InvokeAsync(StateHasChanged);
     }
-
-    public class Communication
-    {
-        public string Message { get; set; }
-        public string Response { get; set; }
-    }
-
 
 }

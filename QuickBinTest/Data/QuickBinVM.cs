@@ -14,7 +14,6 @@ namespace QuickBinTest.Data
     {
         public Socket socket { get; set; }
         public List<string> Messages { get; set; } = new List<string>();
-        //public Communication MyModel { get; set; } = new Communication();
         public string Line1 { get; set; }
         public string Line2 { get; set; }
         public string Line3 { get; set; }
@@ -48,11 +47,11 @@ namespace QuickBinTest.Data
                 try
                 {
                     socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                    Activity.Add($"Connecting to: {QuickBinIpAddress}:{QuickBinSocketPort}");
+                    Activity.Add($"{DateTime.Now} Connecting to: {QuickBinIpAddress}:{QuickBinSocketPort}");
                     await socket.ConnectAsync(QuickBinIpAddress, QuickBinSocketPort);
                     if (socket.Connected)
                     {
-                        Activity.Add("CONNECTED" + Environment.NewLine);
+                        Activity.Add($"{DateTime.Now} Connected {Environment.NewLine}");
                         socket.BeginReceive(new byte[] { 0 }, 0, 0, 0, HandleMessageReceived, null);
                     }
                     else
@@ -114,6 +113,23 @@ namespace QuickBinTest.Data
             catch (Exception ex)
             {
                 Messages.Add($"Error sending message to QuickBin: {ex.Message}");
+            }
+        }
+
+        public void SendCommand(string commandString)
+        {
+            if (!socket.Connected)
+            {
+                Messages.Add("Quickbin not connected.");
+            }
+
+            try
+            {                
+                socket.Send(Encoding.UTF8.GetBytes(commandString + Environment.NewLine));
+            }
+            catch (Exception ex)
+            {
+                Messages.Add($"Error sending command to QuickBin: {ex.Message}");
             }
         }
 
