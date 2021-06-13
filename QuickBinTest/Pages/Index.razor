@@ -1,5 +1,8 @@
 ﻿@page "/"
+@using System.Text
+@using System.Xml
 @using System.Net.Sockets
+@using System.Net.WebSockets
 @using System.Text.Encodings
 @using QuickBinTest.Data
 @inject IQuickBinService QuickBinService
@@ -46,9 +49,29 @@
     @foreach (var quickBin in QuickBins)
     {
         <div class="mb-3">
-            @quickBin.Id  @quickBin.Message 
+            @quickBin.Id  @quickBin.Message
         </div>
     }
+
+<div class="mb-3">
+    <button type="button" class="btn btn-primary" @onclick="btnConnect_Click">CONNECT</button>
+    <button type="button" class="btn btn-primary" @onclick="btnSend_Click">SEND MESSAGE</button>
+</div>
+    <div class="mb-3">
+        <label for="response" class="form-label">MESSAGE TO SEND</label>
+        <input type="text" class="form-control" id="response" @bind-value="MessageToSend">
+    </div>
+    <div class="mb-3">
+        MESSAGES
+    </div>
+    <div class="mb-3">
+        @foreach (var message in Messages)
+        {
+            <div class="mb-3">
+                @message
+            </div>
+        }
+    </div>
 </form>
 
 
@@ -61,7 +84,12 @@
     public string Line3 { get; set; }
     public string Message { get; set; }
     public List<string> Issues { get; set; }
+    public List<string> Messages { get; set; } = new List<string>();
     public List<QuickBin> QuickBins { get; set; }
+    public string UserName { get; set; } = "Mike";
+    public string MessageToSend { get; set; }
+
+    public Socket sck;
 
     protected override async Task OnInitializedAsync()
     {
@@ -72,11 +100,65 @@
         await QuickBinService.RegisterClient("kitting", baseUrl, Issues);
         QuickBinService.onMessageReceived += HandleQuickBinMessage;
 
+        sck = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+    }
+
+    private void btnConnect_Click()
+    {
+        if (!sck.Connected)
+        {
+            sck = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+
+            sck.Connect("192.168.86.27", 23);
+            if (sck.Connected)
+                Messages.Add("YOU ARE NOW CONNECTED" + Environment.NewLine);
+
+            sck.BeginReceive(new byte[] { 0 }, 0, 0, 0, callback, null);
+            sck.Send(Encoding.UTF8.GetBytes($"Welcome {UserName}{Environment.NewLine}"));
+        }
+    }
+
+    private void btnSend_Click()
+    {
+        var formattedMessage = UserName + ">>> " + MessageToSend + Environment.NewLine;
+        sck.Send(Encoding.UTF8.GetBytes(formattedMessage));                
+    }
+
+    void callback(IAsyncResult ar)
+    {
+        string msgHolder = null;
+
+        try
+        {
+            if (sck.Available == 0)
+            {
+                Messages.Add("Socket not available");
+            }
+
+            sck.EndReceive(ar);
+
+            byte[] buf = new byte[8192];
+
+            int rec = sck.Receive(buf); //, buf.Length, 0);
+
+            if (rec < buf.Length)
+                Array.Resize<byte>(ref buf, rec);
+            sck.BeginReceive(new byte[] { 0 }, 0, 0, 0, callback, null);
+
+            Messages.Add(Encoding.UTF8.GetString(buf));
+            InvokeAsync(StateHasChanged);            
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            Messages.Add($"callback failed: {ex.Message}");
+        }
+
     }
 
     public void HandleSendMessageButtonClick()
     {
-        MyModel.Response = SendMessage("192.168.86.27", 80, MyModel.Message);
+        MyModel.Response = SendTcpMessage("192.168.86.27", 80, MyModel.Message);
     }
 
     public void HandleQuickBinMessage(object sender, QuickBin qb)
@@ -92,11 +174,14 @@
         InvokeAsync(StateHasChanged);
     }
 
-    public string SendMessage(string address, int port, string message)
+    public string SendTcpMessage(string address, int port, string message)
     {
         var result = string.Empty;
         try
         {
+            var httpClient = new HttpClient();
+            var udpClient = new UdpClient();
+            var webSocket = new ClientWebSocket();
             var client = new TcpClient(address, port);
 
             Byte[] data = System.Text.Encoding.ASCII.GetBytes($"{message} \n\n");
@@ -129,12 +214,12 @@
 
     public void TurnOnLED()
     {
-        MyModel.Response = SendMessage("192.168.86.27", 80, "LED ON");
+        MyModel.Response = SendTcpMessage("192.168.86.27", 80, "LED ON");
     }
 
     public void TurnOffLED()
     {
-        MyModel.Response = SendMessage("192.168.86.27", 80, "LED OFF");
+        MyModel.Response = SendTcpMessage("192.168.86.27", 80, "LED OFF");
     }
 
     public class Communication
@@ -146,7 +231,7 @@
     public void SendLines()
     {
         var message = $"DRAW{Line1}^{Line2}^{Line3}";
-        MyModel.Response = SendMessage("192.168.86.27", 80, message);
+        MyModel.Response = SendTcpMessage("192.168.86.27", 80, message);
     }
 
 }
