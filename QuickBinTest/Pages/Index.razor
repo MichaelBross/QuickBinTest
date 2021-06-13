@@ -4,7 +4,7 @@
 @using System.Net.Sockets
 @using System.Text.Encodings
 @using QuickBinTest.Data
-@inject IQuickBinService QuickBinService
+
 @inject NavigationManager navigationManager
 
 <h1>QUICK BIN TEST APP</h1>
@@ -17,40 +17,51 @@
     </div>
     <div class="mb-3">
         <label for="messageinput" class="form-label">Line 1</label>
-        <input type="text" class="form-control" id="messageinput" @bind-value="Line1">
+        <input type="text" class="form-control" id="messageinput" @bind-value="QuickBinVM.Line1">
     </div>
     <div class="mb-3">
         <label for="messageinput" class="form-label">Line 2</label>
-        <input type="text" class="form-control" id="messageinput" @bind-value="Line2">
+        <input type="text" class="form-control" id="messageinput" @bind-value="QuickBinVM.Line2">
     </div>
     <div class="mb-3">
         <label for="messageinput" class="form-label">Line 3</label>
-        <input type="text" class="form-control" id="messageinput" @bind-value="Line3">
+        <input type="text" class="form-control" id="messageinput" @bind-value="QuickBinVM.Line3">
     </div>
     <div class="mb-3">
-        <button type="button" class="btn btn-primary" @onclick="SendLines">DRAW LINES</button>
+        <button type="button" class="btn btn-primary" @onclick="QuickBinVM.SendLines">DRAW LINES</button>
     </div>
 
-    @foreach (var quickBin in QuickBins)
+    @foreach (var quickBin in QuickBinVM.QuickBins)
     {
         <div class="mb-3">
             @quickBin.Id  @quickBin.Message
         </div>
     }
 
-<div class="mb-3">
-    <button type="button" class="btn btn-primary" @onclick="btnConnect_Click">CONNECT</button>
-    <button type="button" class="btn btn-primary" @onclick="btnSend_Click">SEND MESSAGE</button>
-</div>
+    <div class="mb-3">
+        <button type="button" class="btn btn-primary" @onclick="btnConnect_Click">CONNECT</button>
+        <button type="button" class="btn btn-primary" @onclick="btnSend_Click">SEND MESSAGE</button>
+    </div>
     <div class="mb-3">
         <label for="response" class="form-label">MESSAGE TO SEND</label>
-        <input type="text" class="form-control" id="response" @bind-value="MessageToSend">
+        <input type="text" class="form-control" id="response" @bind-value="QuickBinVM.MessageToSend">
+    </div>
+    <div class="mb-3">
+        EVENTS
+    </div>
+    <div class="mb-3">
+        @foreach (var _event in QuickBinVM.Activity)
+        {
+            <div class="mb-3">
+                @_event
+            </div>
+        }
     </div>
     <div class="mb-3">
         MESSAGES
     </div>
     <div class="mb-3">
-        @foreach (var message in Messages)
+        @foreach (var message in QuickBinVM.Messages)
         {
             <div class="mb-3">
                 @message
@@ -63,124 +74,31 @@
 
 @code{
 
-    public Communication MyModel { get; set; } = new Communication();
-    public string Line1 { get; set; }
-    public string Line2 { get; set; }
-    public string Line3 { get; set; }
-
-    public List<string> Issues { get; set; }
-    public List<string> Messages { get; set; } = new List<string>();
-    public List<QuickBin> QuickBins { get; set; }
-    public string UserName { get; set; } = "Mike";
-    public string MessageToSend { get; set; }
-    public string QuickBinIpAddress { get; set; }
-    public int QuickBinWebSocketPort { get; set; }
+    public QuickBinVM QuickBinVM { get; set; }
 
     public Socket sck;
 
     protected override async Task OnInitializedAsync()
     {
-        QuickBinIpAddress = "192.168.86.27";
-        QuickBinWebSocketPort = 23;
-        QuickBins = new List<QuickBin>();
+        QuickBinVM = new QuickBinVM();
+        QuickBinVM.QuickBinIpAddress = "192.168.86.27";
+        QuickBinVM.QuickBinSocketPort = 23;
+        QuickBinVM.QuickBins = new List<QuickBin>();
+        QuickBinVM.onMessageReceived += HandleMessageReceived;
         await base.OnInitializedAsync();
 
-        string baseUrl = navigationManager.BaseUri;
-
-        QuickBinService.onMessageReceived += HandleQuickBinMessage;
-
-        sck = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+        QuickBinVM.IntializeSocket();
     }
 
-    private void btnConnect_Click()
+    private async Task btnConnect_Click()
     {
-        if (!sck.Connected)
-        {
-            try
-            {
-                sck = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
-                Messages.Add($"Connecting to: {QuickBinIpAddress}:{QuickBinWebSocketPort}");
-                sck.Connect(QuickBinIpAddress, QuickBinWebSocketPort);
-                if (sck.Connected)
-                {
-                    Messages.Add("YOU ARE NOW CONNECTED" + Environment.NewLine);
-                    sck.BeginReceive(new byte[] { 0 }, 0, 0, 0, HandleMessageReceived, null);
-                    sck.Send(Encoding.UTF8.GetBytes($"Welcome {UserName}{Environment.NewLine}"));
-                }
-                else
-                {
-                    Messages.Add($"Failed to connect to {QuickBinIpAddress}:{QuickBinWebSocketPort}");
-                }
-
-            }
-            catch (Exception ex)
-            {
-
-                Messages.Add(ex.Message);
-            }
-
-        }
+        await QuickBinVM.ConnectToQuickBin();
+        StateHasChanged();
     }
 
     private void btnSend_Click()
     {
-        if (!sck.Connected)
-        {
-            Messages.Add("Quickbin not connected.");
-        }
-
-
-        try
-        {
-            var formattedMessage = UserName + ">>> " + MessageToSend + Environment.NewLine;
-            sck.Send(Encoding.UTF8.GetBytes(formattedMessage));
-        }
-        catch (Exception ex)
-        {
-            Messages.Add($"Error sending message to QuickBin: {ex.Message}");
-        }
-
-    }
-
-    void HandleMessageReceived(IAsyncResult ar)
-    {
-        string msgHolder = null;
-
-        try
-        {
-            if (sck.Available == 0)
-            {
-                Messages.Add("Socket not available");
-            }
-
-            sck.EndReceive(ar);
-
-            byte[] buf = new byte[8192];
-
-            int rec = sck.Receive(buf); //, buf.Length, 0);
-
-            if (rec < buf.Length)
-                Array.Resize<byte>(ref buf, rec);
-            sck.BeginReceive(new byte[] { 0 }, 0, 0, 0, HandleMessageReceived, null);
-
-            Messages.Add($"{DateTime.Now} {Encoding.UTF8.GetString(buf)}");
-            InvokeAsync(StateHasChanged);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.Message);
-            Messages.Add($"callback failed: {ex.Message}");
-        }
-
-    }
-
-    #region HTTP_METHOD   
-
-    public void HandleQuickBinMessage(object sender, QuickBin qb)
-    {
-        QuickBins.Add(qb);
-
-        InvokeAsync(() => StateHasChanged());
+        QuickBinVM.SendMessage();
     }
 
     public void TurnOnLED()
@@ -193,20 +111,16 @@
         // MyModel.Response = SendTcpMessage("192.168.86.27", 80, "LED OFF");
     }
 
+    public void HandleMessageReceived(object sender, EventArgs e)
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
     public class Communication
     {
         public string Message { get; set; }
         public string Response { get; set; }
     }
-
-    public void SendLines()
-    {
-        var message = $"DRAW{Line1}^{Line2}^{Line3}";
-        //MyModel.Response = SendTcpMessage("192.168.86.27", 80, message);
-    }
-
-    #endregion
-
 
 
 }

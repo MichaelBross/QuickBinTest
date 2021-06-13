@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Net.Sockets;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR.Client;
@@ -10,83 +12,86 @@ namespace QuickBinTest.Data
 {
     interface IQuickBinService
     {
-        //Task RegisterClient(string clientName, string baseUrl, List<string> issues);
-        //Task SendAsync(string message);
-        //Task DisconnectAsync();
+        Task ConnectToQuickBin(string ipAddress, int port, List<string> events);
         event EventHandler<QuickBin> onMessageReceived;
     }
 
     public class QuickBinService : IQuickBinService
-    {
-        private string _hubUrl;
-        private HubConnection _hubConnection;
-        private string _clientName;
+    {       
         public event EventHandler<QuickBin> onMessageReceived;
-        //public SortedDictionary socket { get; set; }
-
-        //public async Task RegisterClient(string clientName, string baseUrl, List<string> issues)
-        //{
-        //    if (string.IsNullOrWhiteSpace(clientName))
-        //    {
-        //        issues.Add("Client Name cannot be null or empty.");
-        //        return;
-        //    }
-
-        //    _clientName = clientName;
-
-        //    try
-        //    {
-        //        _hubUrl = baseUrl.TrimEnd('/') + QuickBinHub.HubUrl;
-        //        _hubConnection = new HubConnectionBuilder()
-        //            .WithUrl(_hubUrl)
-        //            .Build();
-
-        //        _hubConnection.On<string, string>("Broadcast", HandleIncomingMessage);
-        //        await _hubConnection.StartAsync();
-        //        await SendAsync($"[Notice] {clientName} joined hub.");
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        issues.Add($"Error regeristing client: {clientName}. {ex.Message} ");
-        //        return;
-        //    }
-        //}
-
-        //public async Task SendAsync(string message)
-        //{
-        //    if (!string.IsNullOrWhiteSpace(message))
-        //    {
-        //        await _hubConnection.SendAsync("Broadcast", _clientName, message);
-        //    }
-        //}
-
-        //private void HandleIncomingMessage(string name, string message)
-        //{
-        //    if (string.IsNullOrEmpty(name))
-        //    {
-        //        return;
-        //    }
-        //    bool isMine = name.Equals(_clientName, StringComparison.OrdinalIgnoreCase);
-        //    if (isMine)
-        //    {
-        //        return;
-        //    }
-        //    var quickBin = JsonSerializer.Deserialize<QuickBin>(message);
-        //    onMessageReceived?.Invoke(this, quickBin);
-        //}
+        public Socket socket { get; set; }
+        private List<string> Messages { get; set; } = new List<string>();
 
         protected virtual void Dispose(bool disposing)
         {
+            
         }
 
-        //public async Task DisconnectAsync()
-        //{
-        //    await SendAsync($"[Notice] {_clientName} left hub.");
+        public async Task ConnectToQuickBin(string QuickBinIpAddress, int QuickBinWebSocketPort, List<string> events)
+        {
+            if (socket.Connected)
+            {
+                var remoteEndPoint = (IPEndPoint)socket.RemoteEndPoint;
+                if (remoteEndPoint.Address == IPAddress.Parse(QuickBinIpAddress))
+                {
+                    events.Add($"QuickBin connected at end point: {QuickBinIpAddress}");
+                }                
+            }
+            if (!socket.Connected)
+            { 
+                try
+                {
+                    socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    events.Add($"Connecting to: {QuickBinIpAddress}:{QuickBinWebSocketPort}");
+                    await socket.ConnectAsync(QuickBinIpAddress, QuickBinWebSocketPort);
+                    if (socket.Connected)
+                    {
+                        events.Add("CONNECTED" + Environment.NewLine);
+                        socket.BeginReceive(new byte[] { 0 }, 0, 0, 0, HandleMessageReceived, null);
+                    }
+                    else
+                    {
+                        events.Add($"Failed to connect to {QuickBinIpAddress}:{QuickBinWebSocketPort}");
+                    }
 
-        //    await _hubConnection.StopAsync();
-        //    await _hubConnection.DisposeAsync();
+                }
+                catch (Exception ex)
+                {
+                    events.Add(ex.Message);
+                }
 
-        //    _hubConnection = null;
-        //}
+            }
+        }
+
+        private void HandleMessageReceived(IAsyncResult ar)
+        {
+            string msgHolder = null;
+
+            try
+            {
+                if (socket.Available == 0)
+                {
+                    Messages.Add("Socket not available");
+                }
+
+                socket.EndReceive(ar);
+
+                byte[] buf = new byte[8192];
+
+                int rec = socket.Receive(buf); //, buf.Length, 0);
+
+                if (rec < buf.Length)
+                    Array.Resize<byte>(ref buf, rec);
+                socket.BeginReceive(new byte[] { 0 }, 0, 0, 0, HandleMessageReceived, null);
+
+                Messages.Add($"{DateTime.Now} {Encoding.UTF8.GetString(buf)}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                Messages.Add($"callback failed: {ex.Message}");
+            }
+
+        }
     }
 }
