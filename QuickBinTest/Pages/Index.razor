@@ -88,11 +88,15 @@
     public List<QuickBin> QuickBins { get; set; }
     public string UserName { get; set; } = "Mike";
     public string MessageToSend { get; set; }
+    public string QuickBinIpAddress { get; set; }
+    public int QuickBinWebSocketPort { get; set; }
 
     public Socket sck;
 
     protected override async Task OnInitializedAsync()
     {
+        QuickBinIpAddress = "192.168.86.27";
+        QuickBinWebSocketPort = 23;
         QuickBins = new List<QuickBin>();
         await base.OnInitializedAsync();
 
@@ -107,14 +111,29 @@
     {
         if (!sck.Connected)
         {
-            sck = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+            try
+            {
+                sck = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                Messages.Add($"Connecting to: {QuickBinIpAddress}:{QuickBinWebSocketPort}");
+                sck.Connect(QuickBinIpAddress, QuickBinWebSocketPort);
+                if (sck.Connected)
+                {
+                    Messages.Add("YOU ARE NOW CONNECTED" + Environment.NewLine);
+                    sck.BeginReceive(new byte[] { 0 }, 0, 0, 0, callback, null);
+                    sck.Send(Encoding.UTF8.GetBytes($"Welcome {UserName}{Environment.NewLine}"));
+                }
+                else
+                {
+                    Messages.Add($"Failed to connect to {QuickBinIpAddress}:{QuickBinWebSocketPort}");
+                }
 
-            sck.Connect("192.168.86.27", 23);
-            if (sck.Connected)
-                Messages.Add("YOU ARE NOW CONNECTED" + Environment.NewLine);
+            }
+            catch (Exception ex)
+            {
 
-            sck.BeginReceive(new byte[] { 0 }, 0, 0, 0, callback, null);
-            sck.Send(Encoding.UTF8.GetBytes($"Welcome {UserName}{Environment.NewLine}"));
+                Messages.Add(ex.Message);
+            }
+
         }
     }
 
