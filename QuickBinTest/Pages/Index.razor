@@ -12,8 +12,8 @@
 
 <form>
     <div class="row">
-        <div class="col-1">
-            <button type="button" class="btn btn-primary" @onclick="btnConnect_Click">CONNECT</button>
+        <div class="col-2" style="max-width: 120px;">
+            <button type="button" class="btn btn-primary" @onclick="btnConnect_Click"  style="width: 105px;">CONNECT</button>
         </div>
         <div class="col-md-4">
             <div class="input-group mb-3">
@@ -30,12 +30,10 @@
     </div>
     <br />
     <div class="row g-3">
-        <div class="col-1">
-            <button type="button" class="btn btn-primary" @onclick="btnSend_Click">SEND</button>
+        <div class="col-2" style="max-width: 120px;">
+            <button type="button" class="btn btn-primary" @onclick="btnSend_Click" style="width: 105px;">SEND</button>
         </div>
         <div class="col-10">
-            @*<label for="response" class="form-label">MESSAGE</label>
-            <input type="text" class="form-control" id="response" @bind-value="QuickBinVM.MessageToSend">*@
             <div class="input-group mb-3">
                 <span class="input-group-text">MESSAGE</span>
                 <input type="text" class="form-control" @bind-value="QuickBinVM.MessageToSend">
