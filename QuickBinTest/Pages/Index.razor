@@ -13,66 +13,58 @@
 <form>
     <div class="row">
         <div class="col-2" style="max-width: 120px;">
-            <button type="button" class="btn btn-primary" @onclick="btnConnect_Click"  style="width: 105px;">CONNECT</button>
+            <button type="button" class="btn btn-primary" @onclick="HandleConnectButtonClick" style="width: 105px;">CONNECT</button>
         </div>
         <div class="col-md-4">
             <div class="input-group mb-3">
                 <span class="input-group-text">IP ADDRESS</span>
-                <input type="text" class="form-control" @bind-value="QuickBinVM.QuickBinIpAddress">
+                <input type="text" class="form-control" @bind-value="QuickBin.QuickBinIpAddress">
             </div>
         </div>
         <div class="col-md-2">
             <div class="input-group mb-3">
                 <span class="input-group-text">PORT</span>
-                <input type="text" class="form-control" @bind-value="QuickBinVM.QuickBinSocketPort">
+                <input type="text" class="form-control" @bind-value="QuickBin.QuickBinSocketPort">
             </div>
+        </div>
+        <div class="col-3" style="max-width: 120px;">
+            <button type="button" class="btn btn-primary" @onclick="HandleDisconnectButtonClick">DISCONNECT</button>
         </div>
     </div>
     <br />
     <div class="row g-3">
         <div class="col-2" style="max-width: 120px;">
-            <button type="button" class="btn btn-primary" @onclick="btnSend_Click" style="width: 105px;">SEND</button>
+            <button type="button" class="btn btn-primary" @onclick="HandleSendCommandButtonClick" style="width: 105px;">SEND</button>
         </div>
         <div class="col-10">
             <div class="input-group mb-3">
-                <span class="input-group-text">MESSAGE</span>
-                <input type="text" class="form-control" @bind-value="QuickBinVM.MessageToSend">
+                <span class="input-group-text">COMMAND</span>
+                <input type="text" class="form-control" @bind-value="CommandToSend">
             </div>
         </div>
     </div>
-    <br />
-    <div class="mb-3">
-        <button type="button" class="btn btn-primary" @onclick="TurnOnLED">LED ON</button>
-        <button type="button" class="btn btn-primary" @onclick="TurnOffLED">LED OFF</button>
-    </div>
+    <br />    
     <div class="input-group mb-3">
         <span class="input-group-text">LINE 1</span>
-        <input type="text" class="form-control" @bind-value="QuickBinVM.Line1">
+        <input type="text" class="form-control" @bind-value="QuickBin.Line1">
     </div>
     <div class="input-group mb-3">
         <span class="input-group-text">LINE 2</span>
-        <input type="text" class="form-control" @bind-value="QuickBinVM.Line2">
+        <input type="text" class="form-control" @bind-value="QuickBin.Line2">
     </div>
     <div class="input-group mb-3">
         <span class="input-group-text">LINE 3</span>
-        <input type="text" class="form-control" @bind-value="QuickBinVM.Line2">
+        <input type="text" class="form-control" @bind-value="QuickBin.Line3">
     </div>
     <div class="mb-3">
-        <button type="button" class="btn btn-primary" @onclick="QuickBinVM.SendLines">DRAW LINES</button>
+        <button type="button" class="btn btn-primary" @onclick="QuickBin.SendLines">DRAW LINES</button>
     </div>
-
-    @foreach (var quickBin in QuickBinVM.QuickBins)
-    {
-        <div class="mb-3">
-            @quickBin.Id  @quickBin.Message
-        </div>
-    }
 
     <div class="mb-3">
         EVENTS
     </div>
     <div class="mb-3">
-        @foreach (var _event in QuickBinVM.Activity)
+        @foreach (var _event in QuickBin.Activity)
         {
             <div class="mb-3">
                 @_event
@@ -83,58 +75,54 @@
         MESSAGES
     </div>
     <div class="mb-3">
-        @foreach (var message in QuickBinVM.Messages)
-        {
-            <div class="mb-3">
-                @message
-            </div>
-        }
-    </div>
+            @foreach (var message in QuickBin.RecivedMessages)
+            {
+                <div class="mb-3">
+                    @message
+                </div>
+            }
+        </div>
 </form>
 
 
 @code{
 
-    public QuickBinVM QuickBinVM { get; set; }
+    public QuickBin QuickBin { get; set; }
+
+    public string CommandToSend { get; set; }
 
     public Socket sck;
-
+    
     protected override async Task OnInitializedAsync()
     {
-        QuickBinVM = new QuickBinVM();
-        QuickBinVM.QuickBinIpAddress = "192.168.86.27";
-        QuickBinVM.QuickBinSocketPort = 23;
-        QuickBinVM.QuickBins = new List<QuickBin>();
-        QuickBinVM.onMessageReceived += HandleMessageReceived;
+        QuickBin = new QuickBin();
+        QuickBin.QuickBinIpAddress = "192.168.86.25";
+        QuickBin.QuickBinSocketPort = 23;        
+        QuickBin.onMessageReceived += HandleMessageReceived;
         await base.OnInitializedAsync();
 
-        QuickBinVM.IntializeSocket();
+        QuickBin.IntializeSocket();
     }
 
-    private async Task btnConnect_Click()
+    private async Task HandleConnectButtonClick()
     {
-        await QuickBinVM.ConnectToQuickBin();
+        await QuickBin.Connect();
         StateHasChanged();
     }
 
-    private void btnSend_Click()
+    private void HandleSendCommandButtonClick()
     {
-        QuickBinVM.SendMessage();
+        QuickBin.SendCommand(CommandToSend);
     }
 
-    public void TurnOnLED()
-    {
-        QuickBinVM.SendCommand("LED ON");
+    public async void HandleMessageReceived(object sender, EventArgs e)
+    {       
+        await InvokeAsync(StateHasChanged);
     }
 
-    public void TurnOffLED()
+    public void HandleDisconnectButtonClick()
     {
-        QuickBinVM.SendCommand("LED OFF");
-    }
-
-    public void HandleMessageReceived(object sender, EventArgs e)
-    {
-        InvokeAsync(StateHasChanged);
+        QuickBin.Disconnect();
     }
 
 }
