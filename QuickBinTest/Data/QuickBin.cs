@@ -13,13 +13,31 @@ namespace QuickBinTest.Data
     public class QuickBin
     {
         private Socket socket { get; set; }
+        public string IncommingMessage { get; set; }
         public List<string> RecivedMessages { get; set; } = new List<string>();
-        public string Line1 { get; set; }
-        public string Line2 { get; set; }
-        public string Line3 { get; set; }       
+        public string Line1 { get; set; } = "SUP2020-10";
+        public string Line2 { get; set; } = "AqAAAA";
+        public string Line3 { get; set; } = "COUNT: 20";
         public string QuickBinIpAddress { get; set; }
         public int QuickBinSocketPort { get; set; }
         public List<string> Activity { get; set; } = new List<string>();
+        public int RawWeightReading { get; set; }
+        public int X0 { get; set; } = 8377163;
+        public int X1 { get; set; } = 8354336;
+        public float CalibrationWeightGrams { get; set; } = (float)100.00;
+        public float WeightInGrams 
+        {
+            get
+            {
+                float ratio_1 = (float)(RawWeightReading - X0);
+                float ratio_2 = (float)(X1 - X0);
+                float ration = ratio_1 / ratio_2;
+                float mass = CalibrationWeightGrams * ration;
+                float rounded = (float)Math.Round(mass, 1);
+                return rounded;
+            }
+
+        }
 
         public event EventHandler onMessageReceived;
 
@@ -66,7 +84,14 @@ namespace QuickBinTest.Data
 
         public void Disconnect()
         {
-            socket.Close();
+            if (!socket.Connected)
+            {
+                Activity.Add($"Cannot disconnect because the socket is not connected.");
+                return;
+            }
+
+            socket.Disconnect(false);
+            
             if (Activity.Count > 100)
             {
                 Activity.Remove(Activity.First());
@@ -81,6 +106,7 @@ namespace QuickBinTest.Data
                 if (socket.Available == 0)
                 {
                     Activity.Add("Socket not available");
+                    onMessageReceived?.Invoke(this, EventArgs.Empty);
                 }
 
                 socket.EndReceive(ar);
@@ -93,15 +119,42 @@ namespace QuickBinTest.Data
                     Array.Resize<byte>(ref buf, rec);
                 socket.BeginReceive(new byte[] { 0 }, 0, 0, 0, HandleMessageReceived, null);
 
-                RecivedMessages.Add($"{DateTime.Now} {Encoding.UTF8.GetString(buf)}");                
+                IncommingMessage += Encoding.UTF8.GetString(buf);
+
+                if (IncommingMessage.EndsWith("\n"))
+                {
+                    RecivedMessages.Add($"{DateTime.Now} {IncommingMessage}");
+                    
+                    if (IncommingMessage.Contains("WEIGHT"))
+                    {
+                        GetRawWeightReading();
+                    }
+                    IncommingMessage = string.Empty;
+                    onMessageReceived?.Invoke(this, EventArgs.Empty);
+                }
+
+                               
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
                 Activity.Add($"{DateTime.Now}> Callback failed: {ex.Message}");
+                IncommingMessage = string.Empty;
             }
 
-            onMessageReceived?.Invoke(this, EventArgs.Empty);
+            
+        }
+
+        private void GetRawWeightReading()
+        {
+            int result = 0;
+            var messageSegments = IncommingMessage.Split(" ");
+            var valueString = messageSegments[1];
+            int.TryParse(valueString, out result);
+            if (result != 0)
+            {
+                RawWeightReading = result;
+            }
         }
         
         public void SendCommand(string commandString)
@@ -125,8 +178,15 @@ namespace QuickBinTest.Data
         {
             var message = $"DRAW{Line1}^{Line2}^{Line3}";
             SendCommand(message);
-            Activity.Add($"{DateTime.Now}> Sent lines {Line1} {Line2} {Line3}");
+            Activity.Add($"{DateTime.Now}> {message}");
         }
 
+
+        public void GetReading()
+        {
+            var message = $"SEND AVERAGE";
+            SendCommand(message);
+            Activity.Add($"{DateTime.Now}> {message}");
+        }
     }
 }

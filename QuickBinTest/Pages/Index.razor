@@ -43,7 +43,7 @@
             </div>
         </div>
     </div>
-    <br />    
+    <br />
     <div class="input-group mb-3">
         <span class="input-group-text">LINE 1</span>
         <input type="text" class="form-control" @bind-value="QuickBin.Line1">
@@ -56,13 +56,65 @@
         <span class="input-group-text">LINE 3</span>
         <input type="text" class="form-control" @bind-value="QuickBin.Line3">
     </div>
-    <div class="mb-3">
-        <button type="button" class="btn btn-primary" @onclick="QuickBin.SendLines">DRAW LINES</button>
+    <div class="row">
+        <div class="col-2">
+            <button type="button" class="btn btn-primary" @onclick="QuickBin.SendLines" style="width: 125px;">DRAW LINES</button>
+        </div>
+        <div class="col-2">
+            <button type="button" class="btn btn-primary" @onclick="QuickBin.GetReading" style="width: 140px;">GET READING</button>
+        </div>
+        <div class="col-2">
+            <button type="button" class="btn btn-primary" @onclick="HandleTareButtonClick" style="width: 125px;">TARE</button>
+        </div>
+        <div class="col-2">
+            <button type="button" class="btn btn-primary" @onclick="HandleCalibrateButtonClick" style="width: 125px;">CAL - @QuickBin.CalibrationWeightGrams</button>
+        </div>
+    </div>
+    <br />
+    <div class="row">
+        <div class="col-3">
+            <div class="input-group mb-3">
+                <span class="input-group-text">RAW WEIGHT READING</span>
+                <input type="number" class="form-control" @bind-value="QuickBin.RawWeightReading">
+            </div>
+        </div>
+        <div class="col-3">
+            <div class="input-group mb-3">
+                <span class="input-group-text">OFFSET</span>
+                <input type="number" class="form-control" @bind-value="QuickBin.X0">
+            </div>
+        </div>
+        <div class="col-3">
+            <div class="input-group mb-3">
+                <span class="input-group-text">CALIBRATION VALUE</span>
+                <input type="number" class="form-control" @bind-value="QuickBin.CalibrationWeightGrams">
+            </div>
+        </div>
+        <div class="col-3">
+            <div class="input-group mb-3">
+                <span class="input-group-text">@(QuickBin.CalibrationWeightGrams)g READING</span>
+                <input type="number" class="form-control" @bind-value="QuickBin.X1">
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-4">
+            <div class="input-group mb-3">
+                <span class="input-group-text">WEIGHT IN GRAMS</span>
+                <input type="number" class="form-control" value="@QuickBin.WeightInGrams">
+            </div>
+        </div>        
     </div>
 
-    <div class="mb-3">
-        EVENTS
+    <div class="row">
+        <div class="col-2">
+            EVENTS
+        </div>
+        <div class="col-2">
+            <button type="button" class="btn btn-sm btn-primary" @onclick="HandleClearEventsButtonClick" style="width: 180px;">CLEAR EVENTS</button>
+        </div>
     </div>
+
     <div class="mb-3">
         @foreach (var _event in QuickBin.Activity)
         {
@@ -71,17 +123,22 @@
             </div>
         }
     </div>
-    <div class="mb-3">
-        MESSAGES
+    <div class="row">
+        <div class="col-2">
+            MESSAGES
+        </div>
+        <div class="col-2">
+            <button type="button" class="btn btn-sm btn-primary" @onclick="HandleClearMessagesButtonClick" style="width: 180px;">CLEAR MESSAGES</button>
+        </div>
     </div>
     <div class="mb-3">
-            @foreach (var message in QuickBin.RecivedMessages)
-            {
-                <div class="mb-3">
-                    @message
-                </div>
-            }
-        </div>
+        @foreach (var message in QuickBin.RecivedMessages)
+        {
+            <div class="mb-3">
+                @message
+            </div>
+        }
+    </div>
 </form>
 
 
@@ -92,12 +149,12 @@
     public string CommandToSend { get; set; }
 
     public Socket sck;
-    
+
     protected override async Task OnInitializedAsync()
     {
         QuickBin = new QuickBin();
-        QuickBin.QuickBinIpAddress = "192.168.86.25";
-        QuickBin.QuickBinSocketPort = 23;        
+        QuickBin.QuickBinIpAddress = "192.168.86.28";
+        QuickBin.QuickBinSocketPort = 23;
         QuickBin.onMessageReceived += HandleMessageReceived;
         await base.OnInitializedAsync();
 
@@ -116,7 +173,7 @@
     }
 
     public async void HandleMessageReceived(object sender, EventArgs e)
-    {       
+    {
         await InvokeAsync(StateHasChanged);
     }
 
@@ -125,4 +182,25 @@
         QuickBin.Disconnect();
     }
 
+    public  void HandleClearEventsButtonClick()
+    {
+        QuickBin.Activity.Clear();
+    }
+
+    public void HandleClearMessagesButtonClick()
+    {
+        QuickBin.RecivedMessages.Clear();
+    }
+
+    public void HandleTareButtonClick()
+    {
+        int value = QuickBin.RawWeightReading;
+        QuickBin.X0 = value;
+    }
+
+    public void HandleCalibrateButtonClick()
+    {
+        int value = QuickBin.RawWeightReading;
+        QuickBin.X1 = value;
+    }
 }
